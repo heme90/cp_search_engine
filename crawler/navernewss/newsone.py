@@ -120,13 +120,24 @@ class cp_crwaler:
         #pool.map은 하나의 변수를 대입하므로 다변수를 파라미터로 받는 함수를 매핑할때는 튜플 형태를 사용합니다
         p.map(self.navercrawl,params)
     
+    
+    def sequpdate(self):
+        ma = int(self.t.find({}).sort([("news_number", pymongo.DESCENDING)]).limit(1)[0]["news_number"])
+
+        for i in self.t.find({"news_number" : -1}).sort([("_id" ,pymongo.ASCENDING)]):
+            self.t.update_one({"_id" : i["_id"]},{"$set" : {"news_number" : ma + 1}})
+            ma += 1
+        
+        
+    
     def mongoinsert(self,urls,tday):
         if(urls.size == 0):
             pass
         else:
             loop = asyncio.get_event_loop()
             futures = [self.mongoinasync(u,tday) for u in urls]
-            loop.run_until_complete(asyncio.wait(futures))
+            loop.run_until_complete(asyncio.wait(futures))        
+            
             
     @asyncio.coroutine    
     async def mongoinasync(self,u,tday):
@@ -135,7 +146,6 @@ class cp_crwaler:
         newsdata = await asyncio.get_event_loop().run_in_executor(None, bs4.BeautifulSoup,requests.get(u).text,"lxml")
         
         #news number --> 시퀀스로 대체
-        nn = 1
         try:
             cont =  newsdata.select("#articleBodyContents")[0].text
             if(len(cont)<300):
@@ -149,7 +159,7 @@ class cp_crwaler:
             ptime = tday
             ctime = tday
             #url = u
-            newsbody = {"news_number" : nn , "category" : cate, "title" :tit , "author" :auth, "posttime" :ptime , "chgtime" : ctime , "contents" : cont  , "url" :  u , "chk" : 0}
+            newsbody = {"news_number" : -1 , "category" : cate, "title" :tit , "author" :auth, "posttime" :ptime , "chgtime" : ctime , "contents" : cont  , "url" :  u , "chk" : 0}
             
             self.t.insert_one(newsbody,bypass_document_validation = True)
         except Exception:
@@ -237,6 +247,7 @@ def main():
     st = time.time()
     cp = cp_crwaler()
     cp.hi()
+    cp.sequpdate()
     print(time.time() - st)
 
 #"C:\Windows\System32\cmd.exe /c z:\Scripts\myscript.bat"

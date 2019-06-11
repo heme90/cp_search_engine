@@ -32,8 +32,7 @@ class cp_news_data:
     #from word_analying import analyze_contents
     #Kakma = Kkma()
     #단어 추출에서 제외할 목록들이 들어갈 단어사전입니다
-    #komoran = Komoran(userdic='C:\\MyPython\\mpython\\com\\crawler\\navernewss\\user_dic.txt') #\u로 시작하기 때문에 \\ 해야 합니다.
-    komoran = Komoran()
+    komoran = Komoran(userdic="../crawler/navernewss/user_dic.txt") #\u로 시작하기 때문에 \\ 해야 합니다.
     #단어사전이 없다면 기본 생성자를 사용합니다
     #komoran = Komoran()
     
@@ -42,20 +41,12 @@ class cp_news_data:
         print(self.komoran.pos(newscontents))
     """
     
-    def formatdates(self,n):
-        numdays = n
-        now = time.strftime("%Y%m%d")
-        e = datetime.datetime(int(now[0:4]), int(now[4:6]), int(now[6:]))
-        #오늘부터 몇일치 뉴스를 분석할지 결정하는 변수입니다 --> n일치 => numdays = n
-        date_list = [(e - datetime.timedelta(days=x)).strftime('%Y%m%d') for x in range(0, numdays)]
-        return date_list
-    
     
     #아직 분석되지 않는 뉴스(chk==0)들을 찾아오는 함수입니다
     def find(self,d):
         ooo = []
         
-        for i in self.t.find({"posttime" : self.day ,"chk" : 0}, {"_id" : 0, "news_number" : 1,"category" : 1 ,"url": 1 , "contents" : 1 ,"posttime" : 1}):
+        for i in self.t.find({"posttime" : "20190610"}, {"_id" : 0 ,"news_number" : 1,"category" : 1 ,"url": 1 , "contents" : 1 ,"posttime" : 1}):
             ooo.append(i)
         
         return ooo
@@ -86,8 +77,10 @@ class cp_news_data:
                     di[str(i)] += 1
                 else: 
                     di[str(i)] = 1
-            news = {"news_number" : cont["news_number"] ,"category" : cont['category'],"url" : cont['url'] ,"posttime" : cont['posttime'] ,'data' : di}
-            
+            news = {"news_number" : cont["news_number"],"category" : cont['category'],"url" : cont['url'] ,"posttime" : cont['posttime'] ,'data' : di}
+                
+            del analyze_contents,ac,cont,di
+            #몽고디비에 입력
             self.mongodata(news)
                 
         except Exception as e:
@@ -108,5 +101,5 @@ if __name__ == '__main__':
     stt = time.time()   
     cnd = cp_news_data()
     cnd.abc()
-    cnd.t.update_many({"posttime":cnd.day,"chk" : 0},{"$set" :{"chk" : 1}})
+    #cnd.t.update_many({"posttime":cnd.day,"chk" : 0},{"$set" :{"chk" : 1}})
     print(time.time() - stt)
