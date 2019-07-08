@@ -21,23 +21,35 @@ import numpy as np
 
 class cp_crwaler:
     
+	#앞 괄호는 db 뒤 괄호는 collection
     con = pymongo.MongoClient("127.0.0.1", 27777)
-    #앞 괄호는 db 뒤 괄호는 collection
+    
+	#뉴스 원본이 담길 컬렉션
     t = con['news']['news_main']
-    te = con['news']['news_err']
-    #db.news_main.ensureIndex({"url" : 1 } , {unique : true})
-    t.create_index([("url",pymongo.ASCENDING)],unique=True)
-      
+    
+	#필터링된 뉴스가 담길 컬렉션 
+	te = con['news']['news_err']
+    
+	#db.news_main.ensureIndex({"url" : 1 } , {unique : true})
+    t.create_index([("url",pymongo.ASCENDING)],unique=True)  
     te.create_index([("url",pymongo.ASCENDING)],unique=True)
     
     def formatdates(self,n):
-        numdays = n
-        now = time.strftime("%Y%m%d")
-        e = datetime.datetime(int(now[0:4]), int(now[4:6]), int(now[6:]))
-        #오늘부터 몇일치 뉴스를 크롤링할지 결정하는 변수입니다 --> n일치 => numdays = n
-        date_list = [(e - datetime.timedelta(days=x)).strftime('%Y%m%d') for x in range(0, numdays)]
-        return date_list
+        #수집 범위
+		numdays = n
+		
+        #오늘 날짜
+		now = time.strftime("%Y%m%d")
+		
+		#오늘 날짜를 문자열로
+		e = datetime.datetime(int(now[0:4]), int(now[4:6]), int(now[6:]))
         
+		#오늘부터 몇일치 뉴스를 크롤링할지 결정하는 변수입니다 --> n일치 => numdays = n
+        date_list = [(e - datetime.timedelta(days=x)).strftime('%Y%m%d') for x in range(0, numdays)]
+        
+		return date_list
+    
+	#크롤링할 루트 url을 리턴하는 함수입니다
     def sectionss(self):
         #정치 섹션
         pol = ["https://news.naver.com/main/list.nhn?mode=LS2D&mid=shm&sid1=100&sid2=264",
@@ -99,49 +111,63 @@ class cp_crwaler:
              "https://news.naver.com/main/list.nhn?mode=LS2D&mid=shm&sid1=105&sid2=229",
              "https://news.naver.com/main/list.nhn?mode=LS2D&mid=shm&sid1=105&sid2=228"]   
         
-        sectionlist = [pol, eco, soc, lifeandculture, world, itgi]
-        return sectionlist
+		sectionlist = [pol, eco, soc, lifeandculture, world, itgi]
+        
+		return sectionlist
     
     def hi(self):
         
+		#수집할 날짜 수
         nd = 1
-        date_list = self.formatdates(nd)
-        #병렬 스레드 처리할 풀 생성
-        p = multiprocessing.Pool(8) 
-        newspagelist = self.sectionss()
+		date_list = self.formatdates(nd)
         
+		#병렬 스레드 처리할 풀 생성
+        p = multiprocessing.Pool(8) 
+		newspagelist = self.sectionss()
         params = []
-        for d in date_list:
-            datess = self.newslistprev(d)
-            errs = self.newserrprev(d)
-            for sec in newspagelist:
-                params.append((d,sec,datess,errs))
+        
+		for d in date_list:
+            
+			#사전에 입력한 뉴스들을 리턴받습니다
+			datess = self.newslistprev(d)
+            
+			#필터링 뉴스들을 리턴받습니다
+			errs = self.newserrprev(d)
+            
+			for sec in newspagelist:
+               
+				#병렬 프로세스를 수행하기 위해 params에 튜플을 담습니다
+				params.append((d,sec,datess,errs))
                         
         #pool.map은 하나의 변수를 대입하므로 다변수를 파라미터로 받는 함수를 매핑할때는 튜플 형태를 사용합니다
         p.map(self.navercrawl,params)
     
-    
+    #몽고디비 시퀀스로 사용되는 news_number 필드를 업데이트합니다
     def sequpdate(self):
-        ma = int(self.t.find({}).sort([("news_number", pymongo.DESCENDING)]).limit(1)[0]["news_number"])
+        
+		#기존 컬렉션에서 가장 높은 news_number를 가져옵니다
+		ma = int(self.t.find({}).sort([("news_number", pymongo.DESCENDING)]).limit(1)[0]["news_number"])
 
         for i in self.t.find({"news_number" : -1}).sort([("_id" ,pymongo.ASCENDING)]):
             self.t.update_one({"_id" : i["_id"]},{"$set" : {"news_number" : ma + 1}})
             ma += 1
         
         
-    
     def mongoinsert(self,urls,tday):
-        if(urls.size == 0):
+        
+		if(urls.size == 0):
             pass
         else:
-            loop = asyncio.get_event_loop()
+            #병렬 프로세스 안에서 비동기 함수에 파라미터 매핑
+			loop = asyncio.get_event_loop()
             futures = [self.mongoinasync(u,tday) for u in urls]
             loop.run_until_complete(asyncio.wait(futures))        
             
-            
+    #비동기 프로세스로 호출할 모듈        
     @asyncio.coroutine    
     async def mongoinasync(self,u,tday):
-        #비동기 함수에서는 코드의 실행에 순서가 없습니다, 페이지를 따오기 전에 파싱을 시작하면 nullpointer 익셉션이 발생하기 때문에
+        
+		#비동기 함수에서는 코드의 실행에 순서가 없습니다, 페이지를 따오기 전에 파싱을 시작하면 Nullpointer 익셉션이 발생하기 때문에
         #페이지 요청을 받아오는 코드의 콜백을 기다려야 합니다
         newsdata = await asyncio.get_event_loop().run_in_executor(None, bs4.BeautifulSoup,requests.get(u).text,"lxml")
         
@@ -164,14 +190,11 @@ class cp_crwaler:
             self.t.insert_one(newsbody,bypass_document_validation = True)
         except Exception:
             try:
-                #이후에 다시 일어날 익셉션을 방지하기 위해 err 컬렉션을 새로 만듭니다
+                #이후에 다시 일어날 익셉션을 방지하여 실행시간을 줄이기 위해 err 컬렉션에 입력합니다
                 self.te.insert_one({"url" : u,"posttime" : tday},bypass_document_validation = True)
-            except Exception:
-                
-                pass
-            
+            except Exception:   
+				pass
             pass
-        #NoneType
     
     #사전에 입력되어있는 뉴스들을 조회하여 중복을 제거하기 위한 밑준비를 하는 함수입니다
     def newslistprev(self,d):
