@@ -1,10 +1,10 @@
 실행방법
 
-하둡 클러스터 저장소에 /compath 폴더 이하 모든 디렉토리를 갖춥니다 ( table_analyze.py 참조 )
-python에 bs4, konlpy, gensim, cython, pandas, numpy, pyspark, pymongo를 각각 설치해둡니다
-crawl/navernewss/cp_crawl.bat / cp_hdfs.bat에 있는 경로들을 윈도우 환경에 갖춥니다
-mongodb 4.0.8 이상 버전을 설치한뒤 27777번 포트를 열어둡니다
-cp_crawl.bat과 cp_hdfs.bat을 각각 실행합니다
+		하둡 클러스터 저장소에 /compath 폴더 이하 모든 디렉토리를 갖춥니다 ( table_analyze.py 참조 )
+		python에 bs4, konlpy, gensim, cython, pandas, numpy, pyspark, pymongo를 각각 설치해둡니다
+		crawl/navernewss/cp_crawl.bat / cp_hdfs.bat에 있는 경로들을 윈도우 환경에 갖춥니다
+		mongodb 4.0.8 이상 버전을 설치한뒤 27777번 포트를 열어둡니다
+		cp_crawl.bat과 cp_hdfs.bat을 각각 실행합니다
 
 
 
